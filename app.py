@@ -5,7 +5,24 @@ from flasgger import Swagger
 
 app = Flask(__name__)
 
-API_KEY = "onur123"  # Burayı dilediğin gibi değiştirebilirsin
+API_KEY = "onur123"
+
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "Kripto API",
+        "description": "Swagger UI ile test edilebilir, API key korumalı örnek API",
+        "version": "1.0"
+    },
+    "securityDefinitions": {
+        "APIKeyHeader": {
+            "type": "apiKey",
+            "name": "X-API-KEY",
+            "in": "header"
+        }
+    },
+    "security": [{"APIKeyHeader": []}]
+}
 
 swagger_config = {
     "headers": [],
@@ -19,20 +36,11 @@ swagger_config = {
     ],
     "static_url_path": "/flasgger_static",
     "swagger_ui": True,
-    "specs_route": "/apidocs/",
-    "securityDefinitions": {
-        "APIKeyHeader": {
-            "type": "apiKey",
-            "name": "X-API-KEY",
-            "in": "header"
-        }
-    },
-    "security": [{"APIKeyHeader": []}]
+    "specs_route": "/apidocs/"
 }
 
-swagger = Swagger(app, config=swagger_config)
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-# Logging yapılandırması
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -45,7 +53,7 @@ logging.basicConfig(
 @app.before_request
 def log_and_auth():
     logging.info(f"Request: {request.method} {request.path} | IP: {request.remote_addr}")
-    if request.path != "/":
+    if request.path != "/" and not request.path.startswith("/flasgger_static") and not request.path.startswith("/apispec_"):
         key = request.headers.get("X-API-KEY")
         if key != API_KEY:
             logging.warning("Unauthorized access attempt")
