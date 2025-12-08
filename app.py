@@ -37,7 +37,7 @@ logging.basicConfig(
 @app.before_request
 def log_and_auth():
     logging.info(f"Request: {request.method} {request.path} | IP: {request.remote_addr}")
-    if request.path != "/":
+    if request.path not in ["/", "/export/csv"]:
         key = request.headers.get("X-API-KEY")
         if key != API_KEY:
             logging.warning("Unauthorized access attempt")
