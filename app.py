@@ -53,7 +53,7 @@ logging.basicConfig(
 @app.before_request
 def log_and_auth():
     logging.info(f"Request: {request.method} {request.path} | IP: {request.remote_addr}")
-    if request.path != "/" and not request.path.startswith("/flasgger_static") and not request.path.startswith("/apispec_"):
+    if not request.path.startswith("/apidocs") and not request.path.startswith("/apispec") and not request.path.startswith("/flasgger_static"):
         key = request.headers.get("X-API-KEY")
         if key != API_KEY:
             logging.warning("Unauthorized access attempt")
