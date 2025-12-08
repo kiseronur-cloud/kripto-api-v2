@@ -19,7 +19,15 @@ swagger_config = {
     ],
     "static_url_path": "/flasgger_static",
     "swagger_ui": True,
-    "specs_route": "/apidocs/"
+    "specs_route": "/apidocs/",
+    "securityDefinitions": {
+        "APIKeyHeader": {
+            "type": "apiKey",
+            "name": "X-API-KEY",
+            "in": "header"
+        }
+    },
+    "security": [{"APIKeyHeader": []}]
 }
 
 swagger = Swagger(app, config=swagger_config)
@@ -37,7 +45,7 @@ logging.basicConfig(
 @app.before_request
 def log_and_auth():
     logging.info(f"Request: {request.method} {request.path} | IP: {request.remote_addr}")
-    if request.path not in ["/", "/export/csv"]:
+    if request.path != "/":
         key = request.headers.get("X-API-KEY")
         if key != API_KEY:
             logging.warning("Unauthorized access attempt")
@@ -48,12 +56,8 @@ def home():
     """
     Ana karşılama endpoint'i
     ---
-    parameters:
-      - name: X-API-KEY
-        in: header
-        type: string
-        required: false
-        description: API erişim anahtarı
+    security:
+      - APIKeyHeader: []
     responses:
       200:
         description: API çalışıyor mesajı
@@ -65,12 +69,8 @@ def export_csv():
     """
     Örnek CSV veri çıktısı
     ---
-    parameters:
-      - name: X-API-KEY
-        in: header
-        type: string
-        required: true
-        description: API erişim anahtarı
+    security:
+      - APIKeyHeader: []
     responses:
       200:
         description: CSV dosyası olarak örnek veri
