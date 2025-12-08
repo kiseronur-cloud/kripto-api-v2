@@ -1,5 +1,6 @@
 import logging
-from flask import Flask, request, abort
+import csv
+from flask import Flask, request, abort, Response
 from flasgger import Swagger
 
 app = Flask(__name__)
@@ -58,6 +59,39 @@ def home():
         description: API çalışıyor mesajı
     """
     return "API çalışıyor! Hoş geldin Onur 👋"
+
+@app.route("/export/csv")
+def export_csv():
+    """
+    Örnek CSV veri çıktısı
+    ---
+    parameters:
+      - name: X-API-KEY
+        in: header
+        type: string
+        required: true
+        description: API erişim anahtarı
+    responses:
+      200:
+        description: CSV dosyası olarak örnek veri
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+    """
+    data = [
+        ["id", "coin", "price"],
+        [1, "Bitcoin", 43000],
+        [2, "Ethereum", 2300],
+        [3, "Solana", 95]
+    ]
+
+    def generate():
+        for row in data:
+            yield ",".join(map(str, row)) + "\n"
+
+    return Response(generate(), mimetype="text/csv")
 
 @app.errorhandler(Exception)
 def handle_exception(e):
