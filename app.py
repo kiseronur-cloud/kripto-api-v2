@@ -1,8 +1,10 @@
 import logging
-from flask import Flask, request
+from flask import Flask, request, abort
 from flasgger import Swagger
 
 app = Flask(__name__)
+
+API_KEY = "onur123"  # Burayı dilediğin gibi değiştirebilirsin
 
 swagger_config = {
     "headers": [],
@@ -32,14 +34,25 @@ logging.basicConfig(
 )
 
 @app.before_request
-def log_request_info():
+def log_and_auth():
     logging.info(f"Request: {request.method} {request.path} | IP: {request.remote_addr}")
+    if request.path != "/":
+        key = request.headers.get("X-API-KEY")
+        if key != API_KEY:
+            logging.warning("Unauthorized access attempt")
+            abort(401, description="Geçersiz API anahtarı")
 
 @app.route("/")
 def home():
     """
     Ana karşılama endpoint'i
     ---
+    parameters:
+      - name: X-API-KEY
+        in: header
+        type: string
+        required: false
+        description: API erişim anahtarı
     responses:
       200:
         description: API çalışıyor mesajı
