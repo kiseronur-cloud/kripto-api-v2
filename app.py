@@ -1,7 +1,9 @@
 import logging
 from flask import Flask, request
+from flasgger import Swagger
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # Logging yapılandırması
 logging.basicConfig(
@@ -19,6 +21,13 @@ def log_request_info():
 
 @app.route("/")
 def home():
+    """
+    Ana karşılama endpoint'i
+    ---
+    responses:
+      200:
+        description: API çalışıyor mesajı
+    """
     return "API çalışıyor! Hoş geldin Onur 👋"
 
 @app.errorhandler(Exception)
