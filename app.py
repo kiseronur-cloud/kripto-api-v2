@@ -108,3 +108,44 @@ def handle_exception(e):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+@app.route("/export/pdf")
+def export_pdf():
+    """
+    Örnek PDF veri çıktısı
+    ---
+    security:
+      - APIKeyHeader: []
+    responses:
+      200:
+        description: PDF dosyası olarak örnek veri
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+    """
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    data = [
+        ["id", "coin", "price"],
+        [1, "Bitcoin", 43000],
+        [2, "Ethereum", 2300],
+        [3, "Solana", 95]
+    ]
+
+    x, y = 50, 750
+    for row in data:
+        p.drawString(x, y, "   ".join(map(str, row)))
+        y -= 20
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+
+    return Response(buffer, mimetype='application/pdf', headers={
+        "Content-Disposition": "attachment;filename=kripto-veri.pdf"
+    })
