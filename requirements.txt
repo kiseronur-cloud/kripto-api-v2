@@ -1,1 +1,3 @@
 flask
+gunicorn
+Add gunicorn to requirements
