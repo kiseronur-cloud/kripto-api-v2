@@ -7,13 +7,13 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-# Flask uygulaması (static klasör kapalı)
+# Flask uygulaması (Flask default /static kapalı)
 app = Flask(__name__, static_folder=None)
 
-# Flasgger/Swagger ana ayarları
+# Flasgger/Swagger ana ayarları: UI v3 ve /apidocs/ route
 app.config['SWAGGER'] = {
     'title': 'Kripto API',
-    'uiversion': 3,          # Modern UI
+    'uiversion': 3,
     'specs_route': '/apidocs/'
 }
 
@@ -32,7 +32,7 @@ swagger_config = {
     "specs_route": "/apidocs/"
 }
 
-# Swagger template
+# Swagger template (OpenAPI/Swagger 2.0)
 swagger_template = {
     "swagger": "2.0",
     "info": {
@@ -50,12 +50,18 @@ swagger_template = {
     "security": [{"APIKeyHeader": []}]
 }
 
-# API key kontrolü
+# API key kontrolü: UI ve statik asset yolları whitelist
 @app.before_request
 def check_api_key():
-    if request.path.startswith("/apidocs") \
-       or request.path.startswith("/apispec") \
-       or request.path.startswith("/flasgger_static"):
+    path = request.path
+    if (
+        path.startswith("/apidocs") or
+        path.startswith("/apispec") or
+        path.startswith("/flasgger_static") or
+        path.startswith("/apidocs/static") or
+        path.startswith("/static") or
+        path == "/favicon.ico"
+    ):
         return
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
