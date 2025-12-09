@@ -186,7 +186,12 @@ def handle_exception(e):
     return {"error": str(e)}, 500
 
 # Swagger'ı tüm route'lar tanımlandıktan sonra başlat
-swagger = Swagger(app, config=swagger_config, template=swagger_template)
+swagger = Swagger(
+    app,
+    config=swagger_config,
+    template=swagger_template,
+    static_url_path="/flasgger_static"
+)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
