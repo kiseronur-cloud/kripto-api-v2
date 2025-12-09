@@ -9,11 +9,10 @@ import os
 
 app = Flask(__name__)
 
-# Flasgger/Swagger ana ayarları (UI v3)
-# UI'nin endpointleri doğru ve modern arayüzle yüklenmesi için kritik.
+# Flasgger/Swagger ana ayarları (UI v3 - kritik)
 app.config['SWAGGER'] = {
     'title': 'Kripto API',
-    'uiversion': 3
+    'uiversion': 3  # Modern UI
 }
 
 # Swagger config: spec JSON ve UI route tanımları
@@ -28,7 +27,7 @@ swagger_config = {
         }
     ],
     "swagger_ui": True,
-    "specs_route": "/apidocs/"
+    "specs_route": "/apidocs/"  # Sonunda slash olmalı
 }
 
 # Swagger template: genel metadata + güvenlik şeması
@@ -51,17 +50,20 @@ swagger_template = {
 
 @app.before_request
 def check_api_key():
-    # Swagger UI, JSON spec ve statik dosyalar için kontrolü atla
-    if request.path.startswith("/apidocs") \
-       or request.path.startswith("/apispec") \
-       or request.path.startswith("/flasgger_static") \
-       or request.path.startswith("/static"):
+    """
+    Swagger UI, JSON spec ve tüm statik dosyalar whitelist.
+    Flasgger 0.9.7.1 farklı path'lerden JS/CSS çekebilir: /flasgger_static, /static, /apidocs/static
+    """
+    p = request.path
+    if p.startswith("/apidocs") \
+       or p.startswith("/apispec") \
+       or p.startswith("/flasgger_static") \
+       or p.startswith("/static") \
+       or p.startswith("/apidocs/static"):
         return
-    # API key kontrolü
+    # Diğer tüm istekler için API key zorunlu
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
-
-
 
 @app.route("/")
 def root():
@@ -81,7 +83,6 @@ def root():
               type: string
     """
     return "API çalışıyor! Hoş geldin Onur 👋"
-
 
 @app.route("/export/csv")
 def export_csv():
@@ -113,7 +114,6 @@ def export_csv():
             yield ",".join(map(str, row)) + "\n"
 
     return Response(generate(), mimetype="text/csv")
-
 
 @app.route("/export/pdf")
 def export_pdf():
@@ -156,7 +156,6 @@ def export_pdf():
         "Content-Disposition": "attachment;filename=kripto-veri.pdf"
     })
 
-
 @app.route("/live/prices")
 def live_prices():
     """
@@ -186,12 +185,10 @@ def live_prices():
     except Exception as e:
         return {"error": str(e)}, 500
 
-
 @app.errorhandler(Exception)
 def handle_exception(e):
     logging.exception("Unhandled Exception:")
     return {"error": str(e)}, 500
-
 
 # Swagger'ı tüm route'lar tanımlandıktan sonra başlat
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
@@ -199,4 +196,3 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-    
