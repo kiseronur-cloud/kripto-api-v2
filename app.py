@@ -9,6 +9,12 @@ import os
 
 app = Flask(__name__)
 
+# Flasgger/Swagger ana ayarları (UI v3)
+app.config['SWAGGER'] = {
+    'title': 'Kripto API',
+    'uiversion': 3
+}
+
 swagger_config = {
     "headers": [],
     "specs": [
@@ -40,13 +46,12 @@ swagger_template = {
     "security": [{"APIKeyHeader": []}]
 }
 
-swagger = Swagger(app, config=swagger_config, template=swagger_template)
-
-
 @app.before_request
 def check_api_key():
-    # Swagger UI ve JSON spec için kontrolü atla
-    if request.path.startswith("/apidocs") or request.path.startswith("/apispec"):
+    # Swagger UI, JSON spec ve statik dosyalar için kontrolü atla
+    if request.path.startswith("/apidocs") \
+       or request.path.startswith("/apispec") \
+       or request.path.startswith("/flasgger_static"):
         return
     # API key kontrolü
     if request.headers.get("X-API-KEY") != "onur123":
@@ -58,6 +63,8 @@ def get_():
     """
     Ana karşılama endpoint'i
     ---
+    tags:
+      - Genel
     security:
       - APIKeyHeader: []
     responses:
@@ -76,6 +83,8 @@ def export_csv():
     """
     Örnek CSV veri çıktısı
     ---
+    tags:
+      - Export
     security:
       - APIKeyHeader: []
     responses:
@@ -106,6 +115,8 @@ def export_pdf():
     """
     Örnek PDF veri çıktısı
     ---
+    tags:
+      - Export
     security:
       - APIKeyHeader: []
     responses:
@@ -146,6 +157,8 @@ def live_prices():
     """
     Canlı kripto para fiyatları (CoinGecko API üzerinden)
     ---
+    tags:
+      - Veri
     security:
       - APIKeyHeader: []
     responses:
@@ -174,6 +187,9 @@ def handle_exception(e):
     logging.exception("Unhandled Exception:")
     return {"error": str(e)}, 500
 
+
+# Swagger'ı tüm route'lar tanımlandıktan sonra başlat
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
