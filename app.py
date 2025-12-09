@@ -5,6 +5,8 @@ import requests
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+import os
+
 app = Flask(__name__)
 
 swagger_config = {
@@ -39,6 +41,8 @@ swagger_template = {
 }
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
+
 @app.before_request
 def check_api_key():
     # Swagger UI (/apidocs) için kontrolü atla
@@ -47,7 +51,9 @@ def check_api_key():
     # API key kontrolü
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
-        @app.route("/")
+
+
+@app.route("/")
 def get_():
     """
     Ana karşılama endpoint'i
@@ -93,7 +99,9 @@ def export_csv():
             yield ",".join(map(str, row)) + "\n"
 
     return Response(generate(), mimetype="text/csv")
-    @app.route("/export/pdf")
+
+
+@app.route("/export/pdf")
 def export_pdf():
     """
     Örnek PDF veri çıktısı
@@ -131,7 +139,9 @@ def export_pdf():
     return Response(buffer, mimetype='application/pdf', headers={
         "Content-Disposition": "attachment;filename=kripto-veri.pdf"
     })
-    @app.route("/live/prices")
+
+
+@app.route("/live/prices")
 def live_prices():
     """
     Canlı kripto para fiyatları (CoinGecko API üzerinden)
@@ -157,6 +167,8 @@ def live_prices():
         return response.json()
     except Exception as e:
         return {"error": str(e)}, 500
+
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     logging.exception("Unhandled Exception:")
@@ -164,4 +176,5 @@ def handle_exception(e):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
