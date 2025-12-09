@@ -20,7 +20,7 @@ swagger_config = {
         }
     ],
     "swagger_ui": True,
-    "specs_route": "/apidocs"
+    "specs_route": "/apidocs/"
 }
 
 swagger_template = {
