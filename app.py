@@ -10,11 +10,13 @@ import os
 app = Flask(__name__)
 
 # Flasgger/Swagger ana ayarları (UI v3)
+# UI'nin endpointleri doğru ve modern arayüzle yüklenmesi için kritik.
 app.config['SWAGGER'] = {
     'title': 'Kripto API',
     'uiversion': 3
 }
 
+# Swagger config: spec JSON ve UI route tanımları
 swagger_config = {
     "headers": [],
     "specs": [
@@ -29,6 +31,7 @@ swagger_config = {
     "specs_route": "/apidocs/"
 }
 
+# Swagger template: genel metadata + güvenlik şeması
 swagger_template = {
     "swagger": "2.0",
     "info": {
@@ -48,7 +51,7 @@ swagger_template = {
 
 @app.before_request
 def check_api_key():
-    # Swagger UI, JSON spec ve statik dosyalar için kontrolü atla
+    # Swagger UI, JSON spec ve Flasgger statikleri API key kontrolünden muaf
     if request.path.startswith("/apidocs") \
        or request.path.startswith("/apispec") \
        or request.path.startswith("/flasgger_static"):
@@ -59,7 +62,7 @@ def check_api_key():
 
 
 @app.route("/")
-def get_():
+def root():
     """
     Ana karşılama endpoint'i
     ---
