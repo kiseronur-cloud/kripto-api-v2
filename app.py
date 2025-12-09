@@ -7,17 +7,14 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-# Flask uygulaması (Flask default /static kapalı)
-app = Flask(__name__, static_folder=None)
+app = Flask(__name__)
 
-# Flasgger/Swagger ana ayarları: UI v3 ve /apidocs/ route
 app.config['SWAGGER'] = {
     'title': 'Kripto API',
     'uiversion': 3,
     'specs_route': '/apidocs/'
 }
 
-# Swagger config
 swagger_config = {
     "headers": [],
     "specs": [
@@ -32,12 +29,11 @@ swagger_config = {
     "specs_route": "/apidocs/"
 }
 
-# Swagger template (OpenAPI/Swagger 2.0)
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
-        "description": "Gerçek zamanlı kripto veri API'si",
+        "description": "Gerçek zamanlı kripto veri API'si (Binance Futures USDT pariteleri)",
         "version": "1.0"
     },
     "securityDefinitions": {
@@ -50,7 +46,6 @@ swagger_template = {
     "security": [{"APIKeyHeader": []}]
 }
 
-# API key kontrolü: UI ve statik asset yolları whitelist
 @app.before_request
 def check_api_key():
     path = request.path
@@ -66,137 +61,71 @@ def check_api_key():
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
 
-# Ana endpoint
 @app.route("/")
 def root():
-    """
-    Ana karşılama endpoint'i
-    ---
-    tags:
-      - Genel
-    security:
-      - APIKeyHeader: []
-    responses:
-      200:
-        description: API çalışıyor mesajı
-        content:
-          text/html:
-            schema:
-              type: string
-    """
     return "API çalışıyor! Hoş geldin Onur 👋"
 
-# CSV export
 @app.route("/export/csv")
 def export_csv():
-    """
-    Örnek CSV veri çıktısı
-    ---
-    tags:
-      - Export
-    security:
-      - APIKeyHeader: []
-    responses:
-      200:
-        description: CSV dosyası olarak örnek veri
-        content:
-          text/csv:
-            schema:
-              type: string
-              format: binary
-    """
     data = [
-        ["id", "coin", "price"],
-        [1, "Bitcoin", 43000],
-        [2, "Ethereum", 2300],
-        [3, "Solana", 95]
+        ["id", "coin", "pair"],
+        [1, "Bitcoin", "BTCUSDT"],
+        [2, "Ethereum", "ETHUSDT"],
+        [3, "Solana", "SOLUSDT"],
+        [4, "Dogecoin", "DOGEUSDT"],
+        [5, "XRP", "XRPUSDT"]
     ]
-
     def generate():
         for row in data:
             yield ",".join(map(str, row)) + "\n"
-
     return Response(generate(), mimetype="text/csv")
 
-# PDF export
 @app.route("/export/pdf")
 def export_pdf():
-    """
-    Örnek PDF veri çıktısı
-    ---
-    tags:
-      - Export
-    security:
-      - APIKeyHeader: []
-    responses:
-      200:
-        description: PDF dosyası olarak örnek veri
-        content:
-          application/pdf:
-            schema:
-              type: string
-              format: binary
-    """
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
-
     data = [
-        ["id", "coin", "price"],
-        [1, "Bitcoin", 43000],
-        [2, "Ethereum", 2300],
-        [3, "Solana", 95]
+        ["id", "coin", "pair"],
+        [1, "Bitcoin", "BTCUSDT"],
+        [2, "Ethereum", "ETHUSDT"],
+        [3, "Solana", "SOLUSDT"],
+        [4, "Dogecoin", "DOGEUSDT"],
+        [5, "XRP", "XRPUSDT"]
     ]
-
     x, y = 50, 750
     for row in data:
         p.drawString(x, y, "   ".join(map(str, row)))
         y -= 20
-
     p.showPage()
     p.save()
     buffer.seek(0)
-
     return Response(buffer, mimetype='application/pdf', headers={
-        "Content-Disposition": "attachment;filename=kripto-veri.pdf"
+        "Content-Disposition": "attachment;filename=kripto-pariteler.pdf"
     })
 
-# Canlı fiyatlar
 @app.route("/live/prices")
 def live_prices():
     """
-    Canlı kripto para fiyatları (CoinGecko API üzerinden)
-    ---
-    tags:
-      - Veri
-    security:
-      - APIKeyHeader: []
-    responses:
-      200:
-        description: Canlı fiyat verisi
-        content:
-          application/json:
-            schema:
-              type: object
+    Binance Futures USDT paritelerinden canlı fiyatlar
     """
-    url = "https://api.coingecko.com/api/v3/simple/price"
-    params = {
-        "ids": "bitcoin,ethereum,solana",
-        "vs_currencies": "usd"
-    }
+    url = "https://fapi.binance.com/fapi/v1/ticker/price"
+    symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
+    result = {}
     try:
-        response = requests.get(url, params=params, timeout=5)
-        response.raise_for_status()
-        return response.json()
+        for sym in symbols:
+            response = requests.get(url, params={"symbol": sym}, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            result[sym] = {"usdt.p": float(data["price"])}
+        return result
     except Exception as e:
         return {"error": str(e)}, 500
 
-# Global hata yakalama
 @app.errorhandler(Exception)
 def handle_exception(e):
     logging.exception("Unhandled Exception:")
     return {"error": str(e)}, 500
 
-# Swagger başlatma
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 if __name__ == "__main__":
