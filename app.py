@@ -51,8 +51,6 @@ def check_api_key():
     # API key kontrolü
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
-
-
 @app.route("/")
 def get_():
     """
@@ -69,7 +67,6 @@ def get_():
               type: string
     """
     return "API çalışıyor! Hoş geldin Onur 👋"
-
 
 @app.route("/export/csv")
 def export_csv():
@@ -99,7 +96,6 @@ def export_csv():
             yield ",".join(map(str, row)) + "\n"
 
     return Response(generate(), mimetype="text/csv")
-
 
 @app.route("/export/pdf")
 def export_pdf():
@@ -140,7 +136,6 @@ def export_pdf():
         "Content-Disposition": "attachment;filename=kripto-veri.pdf"
     })
 
-
 @app.route("/live/prices")
 def live_prices():
     """
@@ -167,7 +162,6 @@ def live_prices():
         return response.json()
     except Exception as e:
         return {"error": str(e)}, 500
-
 
 @app.errorhandler(Exception)
 def handle_exception(e):
