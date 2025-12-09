@@ -7,16 +7,17 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
+# Flask uygulaması (static klasör kapalı)
 app = Flask(__name__, static_folder=None)
 
-
-# Flasgger/Swagger ana ayarları (UI v3 - kritik)
+# Flasgger/Swagger ana ayarları
 app.config['SWAGGER'] = {
     'title': 'Kripto API',
-    'uiversion': 3  # Modern UI
+    'uiversion': 3,          # Modern UI
+    'specs_route': '/apidocs/'
 }
 
-# Swagger config: spec JSON ve UI route tanımları
+# Swagger config
 swagger_config = {
     "headers": [],
     "specs": [
@@ -28,10 +29,10 @@ swagger_config = {
         }
     ],
     "swagger_ui": True,
-    "specs_route": "/apidocs/"  # Sonunda slash olmalı
+    "specs_route": "/apidocs/"
 }
 
-# Swagger template: genel metadata + güvenlik şeması
+# Swagger template
 swagger_template = {
     "swagger": "2.0",
     "info": {
@@ -49,17 +50,17 @@ swagger_template = {
     "security": [{"APIKeyHeader": []}]
 }
 
+# API key kontrolü
 @app.before_request
 def check_api_key():
-    # Swagger UI, JSON spec ve Flasgger statikleri API key kontrolünden muaf
     if request.path.startswith("/apidocs") \
        or request.path.startswith("/apispec") \
        or request.path.startswith("/flasgger_static"):
         return
-    # Diğer tüm istekler için API key zorunlu
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
 
+# Ana endpoint
 @app.route("/")
 def root():
     """
@@ -79,6 +80,7 @@ def root():
     """
     return "API çalışıyor! Hoş geldin Onur 👋"
 
+# CSV export
 @app.route("/export/csv")
 def export_csv():
     """
@@ -110,6 +112,7 @@ def export_csv():
 
     return Response(generate(), mimetype="text/csv")
 
+# PDF export
 @app.route("/export/pdf")
 def export_pdf():
     """
@@ -151,6 +154,7 @@ def export_pdf():
         "Content-Disposition": "attachment;filename=kripto-veri.pdf"
     })
 
+# Canlı fiyatlar
 @app.route("/live/prices")
 def live_prices():
     """
@@ -180,13 +184,15 @@ def live_prices():
     except Exception as e:
         return {"error": str(e)}, 500
 
+# Global hata yakalama
 @app.errorhandler(Exception)
 def handle_exception(e):
     logging.exception("Unhandled Exception:")
     return {"error": str(e)}, 500
 
-# Swagger'ı tüm route'lar tanımlandıktan sonra başlat
+# Swagger başlatma
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
