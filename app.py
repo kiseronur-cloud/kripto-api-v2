@@ -51,14 +51,17 @@ swagger_template = {
 
 @app.before_request
 def check_api_key():
-    # Swagger UI, JSON spec ve Flasgger statikleri API key kontrolünden muaf
+    # Swagger UI, JSON spec ve statik dosyalar için kontrolü atla
     if request.path.startswith("/apidocs") \
        or request.path.startswith("/apispec") \
-       or request.path.startswith("/flasgger_static"):
+       or request.path.startswith("/flasgger_static") \
+       or request.path.startswith("/static"):
         return
     # API key kontrolü
     if request.headers.get("X-API-KEY") != "onur123":
         return jsonify({"error": "Geçersiz API anahtarı"}), 401
+
+
 
 
 @app.route("/")
