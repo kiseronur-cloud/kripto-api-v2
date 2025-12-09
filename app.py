@@ -7,7 +7,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
+
 
 # Flasgger/Swagger ana ayarları (UI v3 - kritik)
 app.config['SWAGGER'] = {
@@ -50,16 +51,10 @@ swagger_template = {
 
 @app.before_request
 def check_api_key():
-    """
-    Swagger UI, JSON spec ve tüm statik dosyalar whitelist.
-    Flasgger 0.9.7.1 farklı path'lerden JS/CSS çekebilir: /flasgger_static, /static, /apidocs/static
-    """
-    p = request.path
-    if p.startswith("/apidocs") \
-       or p.startswith("/apispec") \
-       or p.startswith("/flasgger_static") \
-       or p.startswith("/static") \
-       or p.startswith("/apidocs/static"):
+    # Swagger UI, JSON spec ve Flasgger statikleri API key kontrolünden muaf
+    if request.path.startswith("/apidocs") \
+       or request.path.startswith("/apispec") \
+       or request.path.startswith("/flasgger_static"):
         return
     # Diğer tüm istekler için API key zorunlu
     if request.headers.get("X-API-KEY") != "onur123":
