@@ -1,6 +1,6 @@
 # app.py
 # Kripto API (Flask + Flasgger v3 UI + Binance Futures USDT pariteleri)
-# Güvenli, üretim uyumlu, Swagger açıklamaları güncel ve Authorize kutusu aktif.
+# Authorize görünürlüğü ve güvenlik akışı titizlikle düzeltilmiş, üretim uyumlu tam sürüm.
 
 import os
 import csv
@@ -26,6 +26,7 @@ logger = logging.getLogger("kripto-api")
 
 # ------------------------------------------------------------
 # Swagger UI yapılandırması (v3 ve stabil /apidocs/)
+# Flasgger 0.9.7.1 ile uyumlu
 # ------------------------------------------------------------
 app.config["SWAGGER"] = {
     "title": "Kripto API",
@@ -47,20 +48,24 @@ swagger_config = {
     "specs_route": "/apidocs/"
 }
 
+# Global securityDefinitions ve security (Authorize butonunun görünmesi için)
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
+    "schemes": ["https"],
     "securityDefinitions": {
         "APIKeyHeader": {
             "type": "apiKey",
             "name": "X-API-KEY",
-            "in": "header"
+            "in": "header",
+            "description": "API anahtarınızı bu alana girin (örn. onur123)."
         }
     },
+    # Global security: tüm operationlara varsayılan olarak uygulanır (endpoint docstring'lerinde ayrıca belirtiyoruz)
     "security": [{"APIKeyHeader": []}],
     "tags": [
         {"name": "Sistem", "description": "Health ve durum"},
@@ -71,27 +76,35 @@ swagger_template = {
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 # ------------------------------------------------------------
-# Güvenlik: Basit API key (docs endpointleri hariç)
+# Güvenlik: Basit API key (docs ve swagger statikleri hariç)
 # ------------------------------------------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-DOCS_ENDPOINTS = {
-    "apidocs",      # Swagger UI
-    "apispec"       # /apispec.json
-}
+# Flasgger/Swagger UI ile ilgili tüm yolları whiteliste ekledik:
+DOC_PATHS = (
+    "/apidocs",          # UI kökü ve alt yollar
+    "/apispec.json",     # OpenAPI tanımı
+    "/flasgger_static",  # Flasgger statik dosyaları (JS/CSS)
+)
+# Bazı dağıtımlarda statik dosyalar /apidocs/... üzerinden servis edilir:
+DOC_PREFIXES = ("/apidocs", "/apispec.json", "/flasgger_static")
+
+# Sağlık ve ana sayfayı da test/izleme amaçlı serbest bırakmak isteyebilirsiniz:
+PUBLIC_PATHS = ("/health", "/")
 
 @app.before_request
 def check_api_key():
-    allowed = set(DOCS_ENDPOINTS)
-    endpoint = request.endpoint or ""
-    if endpoint in allowed:
+    # Path tabanlı whitelist (endpoint adları sürüme göre değişebileceği için güvenli yaklaşım)
+    path = request.path or ""
+    if path in DOC_PATHS or path.startswith(DOC_PREFIXES) or path in PUBLIC_PATHS:
         return
+
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
 # ------------------------------------------------------------
-# Sağlık kontrolü
+# Sağlık kontrolü (public)
 # ------------------------------------------------------------
 @app.route("/health", methods=["GET"])
 def health():
@@ -117,6 +130,10 @@ def health():
 BINANCE_FAPI_24HR = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 
 def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> Dict:
+    """
+    Binance Futures 24hr ticker endpointinden tek sembol için veri çeker.
+    Basit retry ve timeout içerir.
+    """
     last_err: Optional[Exception] = None
     for attempt in range(retries + 1):
         try:
@@ -130,6 +147,9 @@ def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> D
     return {"error": str(last_err) if last_err else "unknown error"}
 
 def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
+    """
+    Semboller için toplu istek yapar ve çıktıyı {SYMBOL: {"usdt.p": price, "ts": ...}} formatına normalleştirir.
+    """
     out: Dict[str, Dict] = {}
     for sym in symbols:
         data = fetch_binance_24hr(sym)
@@ -168,6 +188,10 @@ def live_prices():
     responses:
       200:
         description: USDT pariteleri son fiyat bilgisi
+        examples:
+          application/json:
+            BTCUSDT: {"usdt.p": "68234.12", "ts": 1733792110000}
+            ETHUSDT: {"usdt.p": "3567.22", "ts": 1733792110000}
     """
     q = request.args.get("symbols", "")
     if q.strip():
@@ -177,13 +201,14 @@ def live_prices():
 
     prices = collect_binance_usdt_prices(symbols)
 
+    # Tamamı hatalıysa anlaşılır yanıt ver
     if all(v.get("usdt.p") is None for v in prices.values()):
         return jsonify({"error": "Binance data unavailable", "details": prices}), 502
 
     return jsonify(prices), 200
 
 # ------------------------------------------------------------
-# CSV export
+# CSV export (canlı fiyatlardan CSV üretir)
 # ------------------------------------------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
@@ -203,6 +228,9 @@ def export_csv():
     responses:
       200:
         description: CSV dosyası olarak çıktı
+        schema:
+          type: string
+          format: binary
     """
     q = request.args.get("symbols", "")
     if q.strip():
@@ -212,6 +240,7 @@ def export_csv():
 
     prices = collect_binance_usdt_prices(symbols)
 
+    # CSV oluştur
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["symbol", "usdt.p", "ts"])
@@ -225,16 +254,18 @@ def export_csv():
     return Response(
         csv_data,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=prices.csv"}
+        headers={
+            "Content-Disposition": "attachment; filename=prices.csv"
+        }
     )
 
 # ------------------------------------------------------------
-# Ana sayfa
+# Ana sayfa (public)
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
     """
-    Basit bilgi
+    Ana karşılama endpoint'i
     ---
     tags:
       - Sistem
@@ -242,7 +273,7 @@ def index():
       - APIKeyHeader: []
     responses:
       200:
-        description: Bilgi
+        description: API çalışıyor mesajı
     """
     return jsonify({
         "name": "Kripto API",
@@ -252,8 +283,9 @@ def index():
     })
 
 # ------------------------------------------------------------
-# Run
+# Üretim uyumlu run
 # ------------------------------------------------------------
 if __name__ == "__main__":
+    # Render varsayılan portu: 10000
     port = int(os.getenv("PORT", "10000"))
     app.run(host="0.0.0.0", port=port)
