@@ -1,12 +1,11 @@
 # app.py
 # Kripto API (Flask + Flasgger v3 UI + Binance Futures USDT pariteleri)
-# Güvenli, üretim uyumlu, minimalist ama tamamlayıcı özelliklerle (health, csv export) hazır sürüm.
+# Güvenli, üretim uyumlu, Swagger açıklamaları güncel.
 
 import os
 import csv
 import io
 import time
-import json
 import logging
 from typing import Dict, List, Optional
 
@@ -83,19 +82,16 @@ DOCS_ENDPOINTS = {
 
 @app.before_request
 def check_api_key():
-    # Docs ve health’i opsiyonel olarak serbest bırak
-    # Health’i kamuya kapatmak istersen 'health' ekleme.
     allowed = set(DOCS_ENDPOINTS)
     endpoint = request.endpoint or ""
     if endpoint in allowed:
         return
-
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
 # ------------------------------------------------------------
-# Sağlık kontrolü (opsiyonel olarak serbest)
+# Sağlık kontrolü
 # ------------------------------------------------------------
 @app.route("/health", methods=["GET"])
 def health():
@@ -119,17 +115,12 @@ def health():
 BINANCE_FAPI_24HR = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 
 def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> Dict:
-    """
-    Binance Futures 24hr ticker endpointinden tek sembol için veri çeker.
-    Basit retry ve timeout içerir.
-    """
     last_err: Optional[Exception] = None
     for attempt in range(retries + 1):
         try:
             r = requests.get(BINANCE_FAPI_24HR, params={"symbol": symbol}, timeout=timeout)
             r.raise_for_status()
-            data = r.json()
-            return data
+            return r.json()
         except Exception as e:
             last_err = e
             logger.warning(f"Binance fetch error for {symbol} (attempt {attempt+1}): {e}")
@@ -137,9 +128,6 @@ def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> D
     return {"error": str(last_err) if last_err else "unknown error"}
 
 def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
-    """
-    Semboller için toplu istek yapar ve çıktıyı {SYMBOL: {"usdt.p": price, "ts": ...}} formatına normalleştirir.
-    """
     out: Dict[str, Dict] = {}
     for sym in symbols:
         data = fetch_binance_24hr(sym)
@@ -176,12 +164,7 @@ def live_prices():
     responses:
       200:
         description: USDT pariteleri son fiyat bilgisi
-        examples:
-          application/json:
-            BTCUSDT: {"usdt.p": "68234.12", "ts": 1733792110000}
-            ETHUSDT: {"usdt.p": "3567.22", "ts": 1733792110000}
     """
-    # Query ile sembolleri özelleştirme (örn. ?symbols=BTCUSDT,BNBUSDT)
     q = request.args.get("symbols", "")
     if q.strip():
         symbols = [s.strip().upper() for s in q.split(",") if s.strip()]
@@ -190,14 +173,13 @@ def live_prices():
 
     prices = collect_binance_usdt_prices(symbols)
 
-    # Tamamı hatalıysa anlaşılır yanıt ver
     if all(v.get("usdt.p") is None for v in prices.values()):
         return jsonify({"error": "Binance data unavailable", "details": prices}), 502
 
     return jsonify(prices), 200
 
 # ------------------------------------------------------------
-# CSV export (canlı fiyatlardan CSV üretir)
+# CSV export
 # ------------------------------------------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
@@ -215,9 +197,6 @@ def export_csv():
     responses:
       200:
         description: CSV dosyası olarak çıktı
-        schema:
-          type: string
-          format: binary
     """
     q = request.args.get("symbols", "")
     if q.strip():
@@ -227,7 +206,6 @@ def export_csv():
 
     prices = collect_binance_usdt_prices(symbols)
 
-    # CSV oluştur
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["symbol", "usdt.p", "ts"])
@@ -241,13 +219,11 @@ def export_csv():
     return Response(
         csv_data,
         mimetype="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=prices.csv"
-        }
+        headers={"Content-Disposition": "attachment; filename=prices.csv"}
     )
 
 # ------------------------------------------------------------
-# Ana sayfa: basit bilgi (401 beklenir, docs açık)
+# Ana sayfa
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
@@ -268,9 +244,8 @@ def index():
     })
 
 # ------------------------------------------------------------
-# Üretim uyumlu run
+# Run
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    # Render varsayılan portu: 10000 (service logs'ta görünüyor)
     port = int(os.getenv("PORT", "10000"))
     app.run(host="0.0.0.0", port=port)
