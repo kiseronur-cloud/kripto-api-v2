@@ -29,7 +29,7 @@ logger = logging.getLogger("kripto-api")
 # ------------------------------------------------------------
 app.config["SWAGGER"] = {
     "title": "Kripto API",
-    "uiversion": 2,   # v2 UI Authorize kutusunu daha stabil gösterir
+    "uiversion": 2,
     "specs_route": "/apidocs/"
 }
 
@@ -59,10 +59,10 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.5"
+        "version": "1.0.6"
     },
     "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
-    "basePath": "/",                        # ← kök path
+    "basePath": "/",
     "schemes": ["https"],
     "securityDefinitions": {
         "APIKeyHeader": {
@@ -92,7 +92,10 @@ PUBLIC_PATHS = ("/health", "/")
 
 @app.before_request
 def check_api_key():
-    path = (request.path or "").rstrip("/")
+    path = (request.path or "")
+    if not path:
+        path = "/"
+    path = path.rstrip("/")
     if (path in DOC_PATHS) or any((request.path or "").startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
         return
     key = request.headers.get("X-API-KEY")
@@ -257,7 +260,7 @@ def index():
         "name": "Kripto API",
         "docs": "/apidocs/",
         "live_prices": "/live/prices",
-        "export_csv": "/export/csv"   # ← eksik satır tamamlandı
+        "export_csv": "/export/csv"
     })
 
 # ------------------------------------------------------------
