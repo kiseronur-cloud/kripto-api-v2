@@ -1,6 +1,6 @@
 # app.py
 # Kripto API (Flask + Flasgger v2 UI + Binance Futures USDT pariteleri)
-# Stabil güvenlik akışı ve doğru Swagger host/basePath. Statikler/Docs whitelisti eksiksiz.
+# Stabil güvenlik akışı, doğru Swagger host/basePath ve tags ile gruplandırma.
 
 import os
 import csv
@@ -37,7 +37,7 @@ swagger_config = {
     ],
     "swagger_ui": True,
     "specs_route": "/apidocs/",
-    "static_url_path": "/flasgger_static",  # ← kritik satır
+    "static_url_path": "/flasgger_static",
     "securityDefinitions": {
         "APIKeyHeader": {"type": "apiKey", "name": "X-API-KEY", "in": "header"}
     }
@@ -48,7 +48,7 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.1.2"
+        "version": "1.1.3"
     },
     "host": "kripto-api-v2.onrender.com",
     "basePath": "/",
@@ -94,6 +94,15 @@ def check_api_key():
 # ----------------------------- Health (public) -----------------------------
 @app.route("/health", methods=["GET"])
 def health():
+    """
+    Sistem durumu
+    ---
+    tags:
+      - Sistem
+    responses:
+      200:
+        description: Sağlık durumu
+    """
     return jsonify({"status": "ok", "time": int(time.time() * 1000)})
 
 # ----------------------------- Binance helpers -----------------------------
@@ -127,6 +136,21 @@ DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
 
 @app.route("/live/prices", methods=["GET"])
 def live_prices():
+    """
+    Canlı fiyatları getirir
+    ---
+    tags:
+      - Veri
+    parameters:
+      - name: symbols
+        in: query
+        type: string
+        required: false
+        description: Virgülle ayrılmış semboller (örn: BTCUSDT,ETHUSDT)
+    responses:
+      200:
+        description: Başarılı yanıt
+    """
     q = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else list(DEFAULT_SYMBOLS)
     prices = collect_binance_usdt_prices(symbols)
@@ -137,6 +161,21 @@ def live_prices():
 # ----------------------------- CSV export (protected) -----------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
+    """
+    Fiyatları CSV olarak dışa aktarır
+    ---
+    tags:
+      - Veri
+    parameters:
+      - name: symbols
+        in: query
+        type: string
+        required: false
+        description: Virgülle ayrılmış semboller
+    responses:
+      200:
+        description: CSV dosyası
+    """
     q = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else list(DEFAULT_SYMBOLS)
     prices = collect_binance_usdt_prices(symbols)
@@ -153,6 +192,15 @@ def export_csv():
 # ----------------------------- Index (public) -----------------------------
 @app.route("/", methods=["GET"])
 def index():
+    """
+    Ana sayfa
+    ---
+    tags:
+      - Sistem
+    responses:
+      200:
+        description: API hakkında bilgi
+    """
     return jsonify({"name": "Kripto API", "docs": "/apidocs/", "live_prices": "/live/prices", "export_csv": "/export/csv"})
 
 # ----------------------------- Run -----------------------------
