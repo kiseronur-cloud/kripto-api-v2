@@ -1,6 +1,5 @@
 # app.py
 # Kripto API (Flask + Flasgger v2 UI + Binance Futures USDT pariteleri)
-# Stabil güvenlik akışı, doğru Swagger host/basePath ve tags ile gruplandırma.
 
 import os
 import csv
@@ -25,67 +24,33 @@ app.config["SWAGGER"] = {
     "specs_route": "/apidocs/"
 }
 
-swagger_config = {
-    "headers": [],
-    "specs": [
-        {
-            "endpoint": "apispec",
-            "route": "/apispec.json",
-            "rule_filter": lambda rule: True,
-            "model_filter": lambda tag: True,
-        }
-    ],
-    "swagger_ui": True,
-    "specs_route": "/apidocs/",
-    "static_url_path": "/flasgger_static",
-    "securityDefinitions": {
-        "APIKeyHeader": {"type": "apiKey", "name": "X-API-KEY", "in": "header"}
-    }
-}
-
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.1.3"
+        "version": "1.1.5"
     },
-    "host": "kripto-api-v2.onrender.com",
+    # Yerelde çalıştırıyorsan burası localhost:10000
+    # Render’da deploy ettiğinde host'u kripto-api-v2.onrender.com yapmalısın
+    "host": "127.0.0.1:10000",
     "basePath": "/",
-    "schemes": ["https"],
-    "securityDefinitions": {
-        "APIKeyHeader": {
-            "type": "apiKey",
-            "name": "X-API-KEY",
-            "in": "header",
-            "description": "API anahtarınızı bu alana girin (varsayılan: onur123)."
-        }
-    },
-    "security": [{"APIKeyHeader": []}],
+    "schemes": ["http"],
     "tags": [
         {"name": "Sistem", "description": "Health ve durum"},
         {"name": "Veri", "description": "Canlı fiyatlar ve export"}
     ]
 }
 
-swagger = Swagger(app, config=swagger_config, template=swagger_template)
+swagger = Swagger(app, template=swagger_template)
 
 # ----------------------------- Security whitelist -----------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-DOC_EXACT = ("/apidocs", "/apispec.json")
-DOC_PREFIX = ("/apidocs/", "/flasgger_static/")
-STATIC_PREFIX = ("/static/",)
-PUBLIC_EXACT = ("/", "/health")
-
 @app.before_request
 def check_api_key():
     path = request.path or "/"
-    if any(path.startswith(p) for p in STATIC_PREFIX):
-        return
-    if (path in DOC_EXACT) or any(path.startswith(p) for p in DOC_PREFIX):
-        return
-    if path in PUBLIC_EXACT:
+    if path in ("/", "/health", "/apidocs", "/apispec.json") or path.startswith("/apidocs/"):
         return
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
@@ -108,31 +73,26 @@ def health():
 # ----------------------------- Binance helpers -----------------------------
 BINANCE_FAPI_24HR = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 
-def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> Dict:
-    last_err: Optional[Exception] = None
-    for attempt in range(retries + 1):
-        try:
-            r = requests.get(BINANCE_FAPI_24HR, params={"symbol": symbol}, timeout=timeout)
-            r.raise_for_status()
-            return r.json()
-        except Exception as e:
-            last_err = e
-            logger.warning(f"Binance fetch error for {symbol} (attempt {attempt+1}): {e}")
-            time.sleep(0.2)
-    return {"error": str(last_err) if last_err else "unknown error"}
+def fetch_binance_24hr(symbol: str) -> Dict:
+    try:
+        r = requests.get(BINANCE_FAPI_24HR, params={"symbol": symbol}, timeout=6)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
     out: Dict[str, Dict] = {}
     for sym in symbols:
         data = fetch_binance_24hr(sym)
         if "lastPrice" in data:
-            out[sym] = {"usdt.p": data["lastPrice"], "ts": data.get("closeTime") or data.get("openTime")}
+            out[sym] = {"usdt.p": data["lastPrice"], "ts": data.get("closeTime")}
         else:
             out[sym] = {"error": data.get("error", "no lastPrice"), "usdt.p": None}
     return out
 
 # ----------------------------- Live prices (protected) -----------------------------
-DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
+DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 
 @app.route("/live/prices", methods=["GET"])
 def live_prices():
@@ -152,10 +112,8 @@ def live_prices():
         description: Başarılı yanıt
     """
     q = request.args.get("symbols", "")
-    symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else list(DEFAULT_SYMBOLS)
+    symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else DEFAULT_SYMBOLS
     prices = collect_binance_usdt_prices(symbols)
-    if all(v.get("usdt.p") is None for v in prices.values()):
-        return jsonify({"error": "Binance data unavailable", "details": prices}), 502
     return jsonify(prices), 200
 
 # ----------------------------- CSV export (protected) -----------------------------
@@ -177,7 +135,7 @@ def export_csv():
         description: CSV dosyası
     """
     q = request.args.get("symbols", "")
-    symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else list(DEFAULT_SYMBOLS)
+    symbols = [s.strip().upper() for s in q.split(",") if s.strip()] if q.strip() else DEFAULT_SYMBOLS
     prices = collect_binance_usdt_prices(symbols)
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -187,7 +145,7 @@ def export_csv():
         writer.writerow([sym, row.get("usdt.p"), row.get("ts")])
     csv_data = buf.getvalue()
     buf.close()
-    return Response(csv_data, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=prices.csv"})
+    return Response(csv_data, mimetype="text/csv")
 
 # ----------------------------- Index (public) -----------------------------
 @app.route("/", methods=["GET"])
