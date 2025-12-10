@@ -257,4 +257,12 @@ def index():
         "name": "Kripto API",
         "docs": "/apidocs/",
         "live_prices": "/live/prices",
-        "export_csv
+        "export_csv": "/export/csv"   # ← eksik satır tamamlandı
+    })
+
+# ------------------------------------------------------------
+# Run
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "10000"))
+    app.run(host="0.0.0.0", port=port)
