@@ -1,5 +1,6 @@
 # app.py
 # Kripto API (Flask + Flasgger v2 UI + Binance Futures USDT pariteleri)
+# Stabil güvenlik akışı: static & docs whitelisti, public endpointler serbest, diğerleri API key ile korumalı.
 
 import os
 import csv
@@ -58,9 +59,9 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.9"
+        "version": "1.1.0"
     },
-    "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
+    "host": "kripto-api-v2.onrender.com",
     "basePath": "/",
     "schemes": ["https"],
     "securityDefinitions": {
@@ -85,17 +86,29 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # ------------------------------------------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-DOC_PATHS = ("/apidocs", "/apispec.json", "/flasgger_static")
-DOC_PREFIXES = ("/apidocs", "/apispec.json", "/flasgger_static")
-PUBLIC_PATHS = ("/health", "/")
+# Whitelist setleri (tam yollar ve prefixler)
+DOC_EXACT = ("/apidocs", "/apispec.json")
+DOC_PREFIX = ("/apidocs/", "/flasgger_static/")
+STATIC_PREFIX = ("/static/",)  # Flask static
+PUBLIC_EXACT = ("/", "/health")
 
 @app.before_request
 def check_api_key():
     path = request.path or "/"
-    if path == "":
-        path = "/"
-    if (path in DOC_PATHS) or any(request.path.startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
+
+    # Statik dosyalar serbest
+    if any(path.startswith(p) for p in STATIC_PREFIX):
         return
+
+    # Flasgger statikleri ve docs serbest
+    if (path in DOC_EXACT) or any(path.startswith(p) for p in DOC_PREFIX):
+        return
+
+    # Public endpointler serbest
+    if path in PUBLIC_EXACT:
+        return
+
+    # Diğer tüm yollar API key ister
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
@@ -145,7 +158,7 @@ def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
     return out
 
 # ------------------------------------------------------------
-# Canlı fiyatlar
+# Canlı fiyatlar (korumalı)
 # ------------------------------------------------------------
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
 
@@ -165,7 +178,7 @@ def live_prices():
     return jsonify(prices), 200
 
 # ------------------------------------------------------------
-# CSV export
+# CSV export (korumalı)
 # ------------------------------------------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
