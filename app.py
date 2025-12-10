@@ -1,6 +1,6 @@
 # app.py
 # Kripto API (Flask + Flasgger v3 UI + Binance Futures USDT pariteleri)
-# Authorize görünürlüğü ve güvenlik akışı titizlikle düzeltilmiş, üretim uyumlu tam sürüm.
+# Authorize görünürlüğü garanti, güvenlik akışı titizlikle düzenlenmiş, üretim uyumlu tam sürüm.
 
 import os
 import csv
@@ -25,8 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("kripto-api")
 
 # ------------------------------------------------------------
-# Swagger UI yapılandırması (v3 ve stabil /apidocs/)
-# Flasgger 0.9.7.1 ile uyumlu
+# Swagger UI yapılandırması (Flasgger 0.9.7.1 ile uyumlu)
 # ------------------------------------------------------------
 app.config["SWAGGER"] = {
     "title": "Kripto API",
@@ -48,24 +47,24 @@ swagger_config = {
     "specs_route": "/apidocs/"
 }
 
-# Global securityDefinitions ve security (Authorize butonunun görünmesi için)
+# Authorize butonunun görünmesi için global securityDefinitions + global security zorunlu
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.1"
+        "version": "1.0.2"
     },
-    "schemes": ["https"],
+    "schemes": ["https", "http"],
     "securityDefinitions": {
         "APIKeyHeader": {
             "type": "apiKey",
             "name": "X-API-KEY",
             "in": "header",
-            "description": "API anahtarınızı bu alana girin (örn. onur123)."
+            "description": "API anahtarınızı bu alana girin (varsayılan: onur123)."
         }
     },
-    # Global security: tüm operationlara varsayılan olarak uygulanır (endpoint docstring'lerinde ayrıca belirtiyoruz)
+    # Global security (UI'de Authorize düğmesini tetikler)
     "security": [{"APIKeyHeader": []}],
     "tags": [
         {"name": "Sistem", "description": "Health ve durum"},
@@ -80,23 +79,22 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # ------------------------------------------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-# Flasgger/Swagger UI ile ilgili tüm yolları whiteliste ekledik:
+# Flasgger/Swagger UI ile ilgili tüm yollar whitelist'te serbest
 DOC_PATHS = (
-    "/apidocs",          # UI kökü ve alt yollar
-    "/apispec.json",     # OpenAPI tanımı
+    "/apidocs",          # UI kökü ve alt yolları
+    "/apispec.json",     # OpenAPI spec
     "/flasgger_static",  # Flasgger statik dosyaları (JS/CSS)
 )
-# Bazı dağıtımlarda statik dosyalar /apidocs/... üzerinden servis edilir:
 DOC_PREFIXES = ("/apidocs", "/apispec.json", "/flasgger_static")
 
-# Sağlık ve ana sayfayı da test/izleme amaçlı serbest bırakmak isteyebilirsiniz:
+# İzleme kolaylığı için health ve ana sayfa public (istersen kaldırabilirsin)
 PUBLIC_PATHS = ("/health", "/")
 
 @app.before_request
 def check_api_key():
-    # Path tabanlı whitelist (endpoint adları sürüme göre değişebileceği için güvenli yaklaşım)
-    path = request.path or ""
-    if path in DOC_PATHS or path.startswith(DOC_PREFIXES) or path in PUBLIC_PATHS:
+    # Path tabanlı whitelist: endpoint isimleri sürüme göre değişebildiği için en sağlam yöntem
+    path = (request.path or "").rstrip("/")
+    if (path in DOC_PATHS) or any((request.path or "").startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
         return
 
     key = request.headers.get("X-API-KEY")
@@ -201,7 +199,6 @@ def live_prices():
 
     prices = collect_binance_usdt_prices(symbols)
 
-    # Tamamı hatalıysa anlaşılır yanıt ver
     if all(v.get("usdt.p") is None for v in prices.values()):
         return jsonify({"error": "Binance data unavailable", "details": prices}), 502
 
@@ -240,7 +237,6 @@ def export_csv():
 
     prices = collect_binance_usdt_prices(symbols)
 
-    # CSV oluştur
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["symbol", "usdt.p", "ts"])
@@ -254,9 +250,7 @@ def export_csv():
     return Response(
         csv_data,
         mimetype="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=prices.csv"
-        }
+        headers={"Content-Disposition": "attachment; filename=prices.csv"}
     )
 
 # ------------------------------------------------------------
@@ -286,6 +280,5 @@ def index():
 # Üretim uyumlu run
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    # Render varsayılan portu: 10000
     port = int(os.getenv("PORT", "10000"))
     app.run(host="0.0.0.0", port=port)
