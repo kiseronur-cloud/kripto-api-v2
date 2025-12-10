@@ -59,9 +59,11 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.4"
+        "version": "1.0.5"
     },
-    "schemes": ["https", "http"],
+    "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
+    "basePath": "/",                        # ← kök path
+    "schemes": ["https"],
     "securityDefinitions": {
         "APIKeyHeader": {
             "type": "apiKey",
@@ -255,12 +257,4 @@ def index():
         "name": "Kripto API",
         "docs": "/apidocs/",
         "live_prices": "/live/prices",
-        "export_csv": "/export/csv"
-    })
-
-# ------------------------------------------------------------
-# Run
-# ------------------------------------------------------------
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+        "export_csv
