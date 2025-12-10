@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("kripto-api")
 
 # ------------------------------------------------------------
-# Swagger UI yapılandırması (Flasgger 0.9.7.1 ile uyumlu)
+# Swagger UI yapılandırması
 # ------------------------------------------------------------
 app.config["SWAGGER"] = {
     "title": "Kripto API",
@@ -59,7 +59,7 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.6"
+        "version": "1.0.7"
     },
     "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
     "basePath": "/",
@@ -92,11 +92,11 @@ PUBLIC_PATHS = ("/health", "/")
 
 @app.before_request
 def check_api_key():
-    path = (request.path or "")
-    if not path:
+    path = request.path or "/"
+    # normalize: boş string yerine "/" bırak
+    if path == "":
         path = "/"
-    path = path.rstrip("/")
-    if (path in DOC_PATHS) or any((request.path or "").startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
+    if (path in DOC_PATHS) or any(request.path.startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
         return
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
@@ -112,8 +112,6 @@ def health():
     ---
     tags:
       - Sistem
-    security:
-      - APIKeyHeader: []
     responses:
       200:
         description: Servis ayakta
@@ -158,7 +156,7 @@ def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
     return out
 
 # ------------------------------------------------------------
-# Canlı fiyatlar (Binance Futures USDT pariteleri)
+# Canlı fiyatlar
 # ------------------------------------------------------------
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
 
@@ -169,8 +167,6 @@ def live_prices():
     ---
     tags:
       - Veri
-    security:
-      - APIKeyHeader: []
     parameters:
       - in: query
         name: symbols
@@ -204,8 +200,6 @@ def export_csv():
     ---
     tags:
       - Veri
-    security:
-      - APIKeyHeader: []
     parameters:
       - in: query
         name: symbols
@@ -250,8 +244,6 @@ def index():
     ---
     tags:
       - Sistem
-    security:
-      - APIKeyHeader: []
     responses:
       200:
         description: API çalışıyor mesajı
