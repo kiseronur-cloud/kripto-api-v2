@@ -53,7 +53,7 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.2"
+        "version": "1.0.3"
     },
     "schemes": ["https", "http"],
     "securityDefinitions": {
@@ -79,24 +79,15 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # ------------------------------------------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-# Flasgger/Swagger UI ile ilgili tüm yollar whitelist'te serbest
-DOC_PATHS = (
-    "/apidocs",          # UI kökü ve alt yolları
-    "/apispec.json",     # OpenAPI spec
-    "/flasgger_static",  # Flasgger statik dosyaları (JS/CSS)
-)
+DOC_PATHS = ("/apidocs", "/apispec.json", "/flasgger_static")
 DOC_PREFIXES = ("/apidocs", "/apispec.json", "/flasgger_static")
-
-# İzleme kolaylığı için health ve ana sayfa public (istersen kaldırabilirsin)
 PUBLIC_PATHS = ("/health", "/")
 
 @app.before_request
 def check_api_key():
-    # Path tabanlı whitelist: endpoint isimleri sürüme göre değişebildiği için en sağlam yöntem
     path = (request.path or "").rstrip("/")
     if (path in DOC_PATHS) or any((request.path or "").startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
         return
-
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
@@ -128,10 +119,6 @@ def health():
 BINANCE_FAPI_24HR = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 
 def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> Dict:
-    """
-    Binance Futures 24hr ticker endpointinden tek sembol için veri çeker.
-    Basit retry ve timeout içerir.
-    """
     last_err: Optional[Exception] = None
     for attempt in range(retries + 1):
         try:
@@ -145,9 +132,6 @@ def fetch_binance_24hr(symbol: str, timeout: float = 6.0, retries: int = 2) -> D
     return {"error": str(last_err) if last_err else "unknown error"}
 
 def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
-    """
-    Semboller için toplu istek yapar ve çıktıyı {SYMBOL: {"usdt.p": price, "ts": ...}} formatına normalleştirir.
-    """
     out: Dict[str, Dict] = {}
     for sym in symbols:
         data = fetch_binance_24hr(sym)
@@ -186,10 +170,6 @@ def live_prices():
     responses:
       200:
         description: USDT pariteleri son fiyat bilgisi
-        examples:
-          application/json:
-            BTCUSDT: {"usdt.p": "68234.12", "ts": 1733792110000}
-            ETHUSDT: {"usdt.p": "3567.22", "ts": 1733792110000}
     """
     q = request.args.get("symbols", "")
     if q.strip():
@@ -205,7 +185,7 @@ def live_prices():
     return jsonify(prices), 200
 
 # ------------------------------------------------------------
-# CSV export (canlı fiyatlardan CSV üretir)
+# CSV export
 # ------------------------------------------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
@@ -225,9 +205,6 @@ def export_csv():
     responses:
       200:
         description: CSV dosyası olarak çıktı
-        schema:
-          type: string
-          format: binary
     """
     q = request.args.get("symbols", "")
     if q.strip():
@@ -277,7 +254,7 @@ def index():
     })
 
 # ------------------------------------------------------------
-# Üretim uyumlu run
+# Run
 # ------------------------------------------------------------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "10000"))
