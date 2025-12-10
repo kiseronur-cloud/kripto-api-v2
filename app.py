@@ -1,5 +1,5 @@
 # app.py
-# Kripto API (Flask + Flasgger v3 UI + Binance Futures USDT pariteleri)
+# Kripto API (Flask + Flasgger v2 UI + Binance Futures USDT pariteleri)
 # Authorize görünürlüğü garanti, güvenlik akışı titizlikle düzenlenmiş, üretim uyumlu tam sürüm.
 
 import os
@@ -29,7 +29,7 @@ logger = logging.getLogger("kripto-api")
 # ------------------------------------------------------------
 app.config["SWAGGER"] = {
     "title": "Kripto API",
-    "uiversion": 3,
+    "uiversion": 2,   # v2 UI Authorize kutusunu daha stabil gösterir
     "specs_route": "/apidocs/"
 }
 
@@ -44,16 +44,22 @@ swagger_config = {
         }
     ],
     "swagger_ui": True,
-    "specs_route": "/apidocs/"
+    "specs_route": "/apidocs/",
+    "securityDefinitions": {
+        "APIKeyHeader": {
+            "type": "apiKey",
+            "name": "X-API-KEY",
+            "in": "header"
+        }
+    }
 }
 
-# Authorize butonunun görünmesi için global securityDefinitions + global security zorunlu
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.3"
+        "version": "1.0.4"
     },
     "schemes": ["https", "http"],
     "securityDefinitions": {
@@ -64,7 +70,6 @@ swagger_template = {
             "description": "API anahtarınızı bu alana girin (varsayılan: onur123)."
         }
     },
-    # Global security (UI'de Authorize düğmesini tetikler)
     "security": [{"APIKeyHeader": []}],
     "tags": [
         {"name": "Sistem", "description": "Health ve durum"},
