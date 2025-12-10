@@ -1,6 +1,6 @@
 # app.py
 # Kripto API (Flask + Flasgger v3 UI + Binance Futures USDT pariteleri)
-# Güvenli, üretim uyumlu, Swagger açıklamaları güncel.
+# Güvenli, üretim uyumlu, Swagger açıklamaları güncel ve Authorize kutusu aktif.
 
 import os
 import csv
@@ -100,6 +100,8 @@ def health():
     ---
     tags:
       - Sistem
+    security:
+      - APIKeyHeader: []
     responses:
       200:
         description: Servis ayakta
@@ -155,6 +157,8 @@ def live_prices():
     ---
     tags:
       - Veri
+    security:
+      - APIKeyHeader: []
     parameters:
       - in: query
         name: symbols
@@ -188,6 +192,8 @@ def export_csv():
     ---
     tags:
       - Veri
+    security:
+      - APIKeyHeader: []
     parameters:
       - in: query
         name: symbols
@@ -232,6 +238,8 @@ def index():
     ---
     tags:
       - Sistem
+    security:
+      - APIKeyHeader: []
     responses:
       200:
         description: Bilgi
