@@ -1,6 +1,5 @@
 # app.py
 # Kripto API (Flask + Flasgger v2 UI + Binance Futures USDT pariteleri)
-# Authorize görünürlüğü garanti, güvenlik akışı titizlikle düzenlenmiş, üretim uyumlu tam sürüm.
 
 import os
 import csv
@@ -59,7 +58,7 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.7"
+        "version": "1.0.8"
     },
     "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
     "basePath": "/",
@@ -93,7 +92,6 @@ PUBLIC_PATHS = ("/health", "/")
 @app.before_request
 def check_api_key():
     path = request.path or "/"
-    # normalize: boş string yerine "/" bırak
     if path == "":
         path = "/"
     if (path in DOC_PATHS) or any(request.path.startswith(p) for p in DOC_PREFIXES) or (path in PUBLIC_PATHS):
@@ -107,15 +105,6 @@ def check_api_key():
 # ------------------------------------------------------------
 @app.route("/health", methods=["GET"])
 def health():
-    """
-    Servis sağlık kontrolü
-    ---
-    tags:
-      - Sistem
-    responses:
-      200:
-        description: Servis ayakta
-    """
     return jsonify({
         "status": "ok",
         "time": int(time.time() * 1000)
@@ -162,21 +151,6 @@ DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT"]
 
 @app.route("/live/prices", methods=["GET"])
 def live_prices():
-    """
-    Binance Futures USDT pariteleri (gerçek zamanlı)
-    ---
-    tags:
-      - Veri
-    parameters:
-      - in: query
-        name: symbols
-        type: string
-        required: false
-        description: Virgülle ayrılmış semboller (örn. BTCUSDT,ETHUSDT)
-    responses:
-      200:
-        description: USDT pariteleri son fiyat bilgisi
-    """
     q = request.args.get("symbols", "")
     if q.strip():
         symbols = [s.strip().upper() for s in q.split(",") if s.strip()]
@@ -195,21 +169,6 @@ def live_prices():
 # ------------------------------------------------------------
 @app.route("/export/csv", methods=["GET"])
 def export_csv():
-    """
-    Canlı fiyatları CSV olarak döndür
-    ---
-    tags:
-      - Veri
-    parameters:
-      - in: query
-        name: symbols
-        type: string
-        required: false
-        description: Virgülle ayrılmış semboller (örn. BTCUSDT,ETHUSDT)
-    responses:
-      200:
-        description: CSV dosyası olarak çıktı
-    """
     q = request.args.get("symbols", "")
     if q.strip():
         symbols = [s.strip().upper() for s in q.split(",") if s.strip()]
@@ -239,15 +198,6 @@ def export_csv():
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
-    """
-    Ana karşılama endpoint'i
-    ---
-    tags:
-      - Sistem
-    responses:
-      200:
-        description: API çalışıyor mesajı
-    """
     return jsonify({
         "name": "Kripto API",
         "docs": "/apidocs/",
