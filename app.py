@@ -37,18 +37,18 @@ swagger_config = {
     ],
     "swagger_ui": True,
     "specs_route": "/apidocs/",
+    "static_url_path": "/flasgger_static",  # ← kritik satır
     "securityDefinitions": {
         "APIKeyHeader": {"type": "apiKey", "name": "X-API-KEY", "in": "header"}
     }
 }
 
-# DİKKAT: Buradaki host/basePath/schemes spec içine girer; UI artık placeholder göstermez.
 swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.1.1"
+        "version": "1.1.2"
     },
     "host": "kripto-api-v2.onrender.com",
     "basePath": "/",
@@ -73,29 +73,20 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # ----------------------------- Security whitelist -----------------------------
 API_KEY = os.getenv("API_KEY", "onur123")
 
-# Whitelist kümeleri (tam ve prefix bazlı)
 DOC_EXACT = ("/apidocs", "/apispec.json")
 DOC_PREFIX = ("/apidocs/", "/flasgger_static/")
-STATIC_PREFIX = ("/static/",)  # Flask'ın kendi static yolu
+STATIC_PREFIX = ("/static/",)
 PUBLIC_EXACT = ("/", "/health")
 
 @app.before_request
 def check_api_key():
     path = request.path or "/"
-
-    # Statikler 200
     if any(path.startswith(p) for p in STATIC_PREFIX):
         return
-
-    # Flasgger statikleri ve doküman yolları 200
     if (path in DOC_EXACT) or any(path.startswith(p) for p in DOC_PREFIX):
         return
-
-    # Public endpointler 200
     if path in PUBLIC_EXACT:
         return
-
-    # Diğer tüm yollar API key ister
     key = request.headers.get("X-API-KEY")
     if key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
@@ -126,10 +117,7 @@ def collect_binance_usdt_prices(symbols: List[str]) -> Dict[str, Dict]:
     for sym in symbols:
         data = fetch_binance_24hr(sym)
         if "lastPrice" in data:
-            out[sym] = {
-                "usdt.p": data["lastPrice"],
-                "ts": data.get("closeTime") or data.get("openTime")
-            }
+            out[sym] = {"usdt.p": data["lastPrice"], "ts": data.get("closeTime") or data.get("openTime")}
         else:
             out[sym] = {"error": data.get("error", "no lastPrice"), "usdt.p": None}
     return out
