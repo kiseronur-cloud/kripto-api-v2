@@ -58,7 +58,7 @@ swagger_template = {
     "info": {
         "title": "Kripto API",
         "description": "Gerçek zamanlı kripto API (Binance Futures USDT pariteleri, health ve CSV export)",
-        "version": "1.0.8"
+        "version": "1.0.9"
     },
     "host": "kripto-api-v2.onrender.com",   # ← kendi Render domainini buraya yaz
     "basePath": "/",
